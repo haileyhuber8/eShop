@@ -201,7 +201,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
     serverFarmId: appServicePlan.id
     siteConfig: {
       alwaysOn: true
-      linuxFxVersion: 'DOTNETCORE|9.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
     }
     httpsOnly: true
   }
@@ -220,7 +220,6 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
       ENABLE_ORYX_BUILD: 'false'
       aoaiConnection: cognitiveAccount.properties.endpoint
-      aoaiKey: cognitiveAccount.listKeys().key1
       textEmbeddingsDeploymentName: textembeddingdeployment.name
     }
   }
@@ -393,20 +392,23 @@ module keyvault 'core/security/keyvault.bicep' = {
 }
 
 //added for Redis Cache
-resource redisCache 'Microsoft.Cache/redisEnterprise@2025-04-01' = {
+resource redisCache 'Microsoft.Cache/redisEnterprise@2025-07-01' = {
   location:location
   name:cacheServerName
   sku:{
     // capacity:2
     name:'Balanced_B5'
   }
+  properties: {
+    publicNetworkAccess: 'Disabled'
+  }
 }     
 
-resource redisdatabase 'Microsoft.Cache/redisEnterprise/databases@2025-04-01' = {
+resource redisdatabase 'Microsoft.Cache/redisEnterprise/databases@2025-07-01' = {
   name: 'default'
   parent: redisCache
   properties: {
-    accessKeysAuthentication: 'Enabled'
+    accessKeysAuthentication: 'Disabled'
     evictionPolicy:'NoEviction'
     clusteringPolicy: 'EnterpriseCluster'
     modules: [
@@ -433,7 +435,7 @@ resource redisAccessPolicyAssignmentName 'Microsoft.Cache/redisEnterprise/databa
   }
 
 //azure open ai resource
-resource cognitiveAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
+resource cognitiveAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: '${name}-csaccount'
   location: 'australiaeast'
   tags: tags
@@ -441,12 +443,13 @@ resource cognitiveAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: '${name}-csaccount'
     publicNetworkAccess: 'Enabled'
+    disableLocalAuth: true
   }
   sku: openAiSku
 }
 
 //ada text embedding service
-resource textembeddingdeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+resource textembeddingdeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01' = {
   name:'${name}-textembedding'
   parent: cognitiveAccount
   properties:{
@@ -460,6 +463,26 @@ resource textembeddingdeployment 'Microsoft.CognitiveServices/accounts/deploymen
     name: 'Standard'
     capacity: embeddingDeploymentCapacity
   }
+}
+
+resource aoai_CognitiveServicesOpenAIContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(cognitiveAccount.id,  subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a001fd3d-188f-4b5d-821b-7da978bf7442'))
+  properties: {
+    principalId: web.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a001fd3d-188f-4b5d-821b-7da978bf7442')
+    principalType: 'ServicePrincipal'
+  }
+  scope: cognitiveAccount
+}
+
+resource aoai_CognitiveServicesUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(cognitiveAccount.id, subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'))
+  properties: {
+    principalId: web.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+    principalType: 'ServicePrincipal'
+  }
+  scope: cognitiveAccount
 }
 
 output WEB_URI string = 'https://${web.properties.defaultHostName}'

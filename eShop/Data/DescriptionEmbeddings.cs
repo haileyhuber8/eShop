@@ -1,14 +1,15 @@
 ﻿using Azure;
 using Azure.AI.OpenAI;
+using Azure.Identity;
 using eShop.Models;
 using Microsoft.IdentityModel.Tokens;
-using Azure.Identity;
-using NRedisStack.Search.Literals.Enums;
-using NRedisStack.Search;
-using StackExchange.Redis;
-using static NRedisStack.Search.Schema;
-using NRedisStack.RedisStackCommands;
 using NRedisStack;
+using NRedisStack.RedisStackCommands;
+using NRedisStack.Search;
+using NRedisStack.Search.Literals.Enums;
+using StackExchange.Redis;
+using System.Net;
+using static NRedisStack.Search.Schema;
 namespace eShop.Data;
 public class DescriptionEmbeddings
 {
@@ -18,7 +19,7 @@ public class DescriptionEmbeddings
         string? redisConnection = config["ConnectionStrings:ESHOPREDISCONNECTION"];
         //<cache_name>.eastus.redisenterprise.cache.azure.net:10000,password=<primary_access_key>,ssl=True,abortConnect=False
         string? aoaiConnection = config["aoaiConnection"];
-        string? aoaiKey = config["aoaiKey"];
+        //string? aoaiKey = config["aoaiKey"];
         string? embeddingsDeploymentName = config["textEmbeddingsDeploymentName"];
         //ConnectionMultiplexer redis = ConnectionMultiplexer.Connect(redisConnection);
         var configurationOptions = await ConfigurationOptions.Parse(redisConnection).ConfigureForAzureWithTokenCredentialAsync(new DefaultAzureCredential());
@@ -30,9 +31,11 @@ public class DescriptionEmbeddings
         // initialize Azure open ai ada-text-embeddings service
         Uri aoaiEndpoint = new(aoaiConnection);
 
-        AzureKeyCredential credentials = new(aoaiKey);
+        //AzureKeyCredential credentials = new(aoaiKey);
 
-        AzureOpenAIClient openAIClient = new AzureOpenAIClient(aoaiEndpoint, credentials);
+        // AzureOpenAIClient openAIClient = new AzureOpenAIClient(aoaiEndpoint, credentials);
+
+        AzureOpenAIClient openAIClient = new AzureOpenAIClient(aoaiEndpoint, new DefaultAzureCredential());
 
         IEnumerable<Product> productList = eShopContext.Product.ToList();
         foreach (var _product in productList) 
